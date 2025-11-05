@@ -1,0 +1,29 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Env
+.env
+.env.*
+
+# Logs
+logs
+*.log
+*.log.*
+
+# OS/Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Builds
+.next/
+dist/
+build/
+out/
+
+# Coverage
+coverage/
+
+

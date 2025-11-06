@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "clean": "node clean-cache.js",
+    "dev:clean": "npm run clean && npm run dev"
   },
   "dependencies": {
     "next": "16.0.1",

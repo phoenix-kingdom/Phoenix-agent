@@ -8,6 +8,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -147,8 +148,20 @@ export default function ChatSidebar({
         {messages.map((message, index) => (
           <div
             key={index}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} items-start gap-2`}
           >
+            {/* Bot Avatar - only show for assistant messages */}
+            {message.role === 'assistant' && (
+              <div className="flex-shrink-0 mt-1">
+                <Image
+                  src="/bot_avatar.jpg"
+                  alt="Phoenix Bot"
+                  width={32}
+                  height={32}
+                  className="rounded-full w-8 h-8"
+                />
+              </div>
+            )}
             <div
               className={`max-w-[80%] rounded-lg p-3 ${
                 message.role === 'user'
@@ -176,7 +189,16 @@ export default function ChatSidebar({
         ))}
 
         {isLoading && (
-          <div className="flex justify-start">
+          <div className="flex justify-start items-start gap-2">
+            <div className="flex-shrink-0 mt-1">
+              <Image
+                src="/bot_avatar.jpg"
+                alt="Phoenix Bot"
+                width={32}
+                height={32}
+                className="rounded-full w-8 h-8"
+              />
+            </div>
             <div className="bg-gray-100 rounded-lg p-3">
               <div className="flex space-x-2">
                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>

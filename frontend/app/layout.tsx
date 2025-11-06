@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PDF Chatbot - Ask Questions About Your PDFs",
+  title: "Phoenix chatbot - Ask Questions About Your PDFs",
   description: "Upload PDFs and ask questions about their content using AI-powered chatbot",
 };
 

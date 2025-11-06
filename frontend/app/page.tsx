@@ -133,20 +133,36 @@ export default function Home() {
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-      {/* Header - Responsive */}
-      <header className="bg-white border-b border-gray-200 px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 flex items-center justify-between">
-        <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4">
-          <Image
-            src="/logo.jpg"
-            alt="PDF Chatbot Logo"
-            width={32}
-            height={32}
-            className="rounded-full w-8 h-8 sm:w-10 sm:h-10"
-            priority
-          />
-          <div>
-            <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">PDF Chatbot</h1>
-            <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">AI-powered document assistant</p>
+      {/* Header - Responsive with dark background to match title.png but softer transition */}
+      <header className="px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 flex items-center justify-between relative shadow-lg" style={{
+        background: 'linear-gradient(to bottom, #2d2d2d 0%, #3a3a3a 70%, #4a4a4a 100%)',
+        borderBottom: '1px solid rgba(0, 0, 0, 0.15)'
+      }}>
+        <div className="flex items-center space-x-3 sm:space-x-4 md:space-x-5">
+          {/* Title Image (Phoenix) + Chatbot Text */}
+          <div className="flex items-end justify-end gap-1 sm:gap-2">
+            <Image
+              src="/title.png"
+              alt="Phoenix"
+              width={100}
+              height={20}
+              className="w-auto"
+              style={{ height: '80px' }}
+              priority
+              unoptimized
+            />
+            <span 
+              className="text-white font-bold tracking-wide" 
+              style={{ 
+                fontSize: 'clamp(1.25rem, 2vw, 2rem)',
+                letterSpacing: '0.05em',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                lineHeight: '1',
+                paddingBottom: '0.2em'
+              }}
+            >
+              Chatbot
+            </span>
           </div>
         </div>
       </header>

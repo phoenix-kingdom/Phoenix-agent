@@ -27,6 +27,35 @@ export default function Home() {
 
   // State for chat sidebar visibility
   const [isChatOpen, setIsChatOpen] = useState(false);
+  
+  // State for chat sidebar width (resizable)
+  // Load saved width from localStorage or use default
+  const [chatWidth, setChatWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('chatSidebarWidth');
+      return saved ? parseInt(saved, 10) : 384;
+    }
+    return 384; // Default: 384px (w-96)
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  // Detect desktop viewport
+  useEffect(() => {
+    const checkDesktop = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
+  // Save chat width to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('chatSidebarWidth', chatWidth.toString());
+    }
+  }, [chatWidth]);
 
   // State for AI settings
   const [selectedModel, setSelectedModel] = useState('gpt-3.5-turbo');
@@ -64,6 +93,43 @@ export default function Home() {
     setFileUrl(url);
     setFileName(file.name);
   };
+
+  // Handle chat sidebar resize
+  useEffect(() => {
+    if (!isDesktop) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      
+      // Calculate new width based on mouse position
+      // Chat sidebar is on the right, so we calculate from the right edge
+      const newWidth = window.innerWidth - e.clientX;
+      
+      // Constrain width between min and max values
+      const minWidth = 280; // Minimum width for usability
+      const maxWidth = Math.min(800, window.innerWidth * 0.6); // Max 60% of screen or 800px
+      
+      setChatWidth(Math.max(minWidth, Math.min(maxWidth, newWidth)));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing, isDesktop]);
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
@@ -113,19 +179,41 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Right Sidebar - Chat - Full screen on mobile, narrower sidebar on desktop */}
-        {/* Made narrower to preserve PDF preview width */}
+        {/* Right Sidebar - Chat - Full screen on mobile, resizable sidebar on desktop */}
         {isChatOpen && (
-          <div className="fixed md:relative inset-0 md:inset-auto w-full md:w-72 lg:w-80 flex-shrink-0 z-50 md:z-auto">
-            <ChatSidebar
-              fileId={fileId}
-              isProcessing={isProcessing}
-              isOpen={isChatOpen}
-              onClose={() => setIsChatOpen(false)}
-              selectedModel={selectedModel}
-              temperature={temperature}
-            />
-          </div>
+          <>
+            {/* Chat Sidebar with flexible width */}
+            <div 
+              className="fixed md:relative inset-0 md:inset-auto flex-shrink-0 z-50 md:z-auto relative"
+              style={{ 
+                width: isDesktop ? `${chatWidth}px` : '100%'
+              }}
+            >
+              {/* Resize handle - only visible on desktop, positioned on left edge */}
+              {isDesktop && (
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-20 flex items-center justify-center group"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setIsResizing(true);
+                  }}
+                  title="Drag to resize chat"
+                >
+                  {/* Visual resize indicator */}
+                  <div className="w-1 h-20 bg-gray-300 group-hover:bg-blue-500 rounded-full transition-colors" />
+                </div>
+              )}
+              
+              <ChatSidebar
+                fileId={fileId}
+                isProcessing={isProcessing}
+                isOpen={isChatOpen}
+                onClose={() => setIsChatOpen(false)}
+                selectedModel={selectedModel}
+                temperature={temperature}
+              />
+            </div>
+          </>
         )}
       </div>
 

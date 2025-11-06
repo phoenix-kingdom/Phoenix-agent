@@ -64,6 +64,10 @@ export default function Home() {
   // State for PDF file info (for preview)
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  
+  // State for PDF highlighting/navigation
+  const [highlightPage, setHighlightPage] = useState<number | null>(null);
+  const [highlightText, setHighlightText] = useState<string | null>(null);
 
   // Cleanup object URLs to prevent memory leaks
   useEffect(() => {
@@ -179,6 +183,8 @@ export default function Home() {
               fileId={fileId}
               fileUrl={fileUrl}
               fileName={fileName}
+              highlightPage={highlightPage}
+              highlightText={highlightText}
             />
           </div>
         </div>
@@ -217,6 +223,15 @@ export default function Home() {
                 setSelectedModel={setSelectedModel}
                 temperature={temperature}
                 setTemperature={setTemperature}
+                onSourceClick={(page, text) => {
+                  setHighlightPage(page);
+                  setHighlightText(text || null);
+                  // Clear highlight after 5 seconds
+                  setTimeout(() => {
+                    setHighlightPage(null);
+                    setHighlightText(null);
+                  }, 5000);
+                }}
               />
             </div>
           </>

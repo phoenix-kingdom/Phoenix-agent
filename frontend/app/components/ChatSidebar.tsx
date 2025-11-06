@@ -13,7 +13,7 @@ import Image from 'next/image';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-  sources?: Array<{ pageContent: string; metadata?: any }>;
+  sources?: Array<{ pageContent: string; metadata?: { page?: number; loc?: any; [key: string]: any } }>;
 }
 
 interface ChatSidebarProps {
@@ -25,6 +25,7 @@ interface ChatSidebarProps {
   setSelectedModel: (model: string) => void;
   temperature: number;
   setTemperature: (temp: number) => void;
+  onSourceClick?: (page: number, text?: string) => void;
 }
 
 export default function ChatSidebar({
@@ -36,6 +37,7 @@ export default function ChatSidebar({
   setSelectedModel,
   temperature,
   setTemperature,
+  onSourceClick,
 }: ChatSidebarProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -88,12 +90,22 @@ export default function ChatSidebar({
     setInput('');
     setIsLoading(true);
 
+    // Create placeholder for streaming response
+    const assistantMessageId = Date.now().toString();
+    const assistantMessage: Message = {
+      role: 'assistant',
+      content: '',
+      sources: undefined,
+    };
+    setMessages((prev) => [...prev, assistantMessage]);
+
     try {
-      // Use agent orchestrator endpoint (decides to answer directly or use tools)
-      const response = await fetch('http://localhost:3001/api/chat', {
+      // Use streaming endpoint
+      const response = await fetch('http://localhost:3001/api/chat?stream=true', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
         },
         body: JSON.stringify({
           question: userMessage.content,
@@ -107,43 +119,76 @@ export default function ChatSidebar({
         throw new Error(`Chat request failed: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let accumulatedContent = '';
 
-      if (data.success) {
-        const assistantMessage: Message = {
-          role: 'assistant',
-          content: data.answer,
-          // Support both sources (from RAG) and steps (from agent)
-          sources: data.sources || (data.steps ? data.steps.map((step: any) => {
-            // Properly handle pageContent - ensure it's always a string
-            let pageContent = '';
-            if (step.observation) {
-              pageContent = typeof step.observation === 'string' 
-                ? step.observation 
-                : String(step.observation);
-            } else if (step.toolInput) {
-              // Serialize object to string if toolInput is an object
-              pageContent = typeof step.toolInput === 'string'
-                ? step.toolInput
-                : JSON.stringify(step.toolInput);
+      if (!reader) {
+        throw new Error('Stream reader not available');
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'token' && data.content) {
+                accumulatedContent += data.content;
+                // Update message in real-time
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const lastIndex = updated.length - 1;
+                  if (updated[lastIndex]?.role === 'assistant') {
+                    updated[lastIndex] = {
+                      ...updated[lastIndex],
+                      content: accumulatedContent,
+                    };
+                  }
+                  return updated;
+                });
+              } else if (data.type === 'done') {
+                // Final message with sources
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const lastIndex = updated.length - 1;
+                  if (updated[lastIndex]?.role === 'assistant') {
+                    updated[lastIndex] = {
+                      ...updated[lastIndex],
+                      content: data.answer || accumulatedContent,
+                      sources: data.sources || undefined,
+                    };
+                  }
+                  return updated;
+                });
+              } else if (data.type === 'error') {
+                throw new Error(data.error);
+              }
+            } catch (e) {
+              console.error('Error parsing SSE data:', e);
             }
-            
-            return {
-              pageContent: pageContent,
-              metadata: { tool: step.tool }
-            };
-          }) : []),
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
-      } else {
-        throw new Error(data.error || 'Failed to get response');
+          }
+        }
       }
     } catch (err) {
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: `Error: ${err instanceof Error ? err.message : 'Failed to process your question'}`,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      // Remove the placeholder message and add error
+      setMessages((prev) => {
+        const updated = prev.slice(0, -1);
+        updated.push({
+          role: 'assistant',
+          content: `Error: ${err instanceof Error ? err.message : 'Failed to process your question'}`,
+        });
+        return updated;
+      });
     } finally {
       setIsLoading(false);
     }
@@ -304,18 +349,73 @@ export default function ChatSidebar({
             >
               <p className="whitespace-pre-wrap text-sm">{message.content}</p>
               {message.sources && message.sources.length > 0 && (
-                <details className="mt-2 text-xs">
-                  <summary className="cursor-pointer opacity-70 hover:opacity-100">
-                    View sources ({message.sources.length})
-                  </summary>
-                  <div className="mt-2 space-y-1">
-                    {message.sources.map((source, idx) => (
-                      <div key={idx} className="p-2 bg-gray-200 rounded">
-                        <p className="opacity-90">{source.pageContent}</p>
-                      </div>
-                    ))}
+                <div className="mt-3 border-t border-gray-300 pt-3">
+                  <div className="mb-2">
+                    <h4 className="text-xs font-bold text-blue-700 uppercase tracking-wide">
+                      📚 Sources ({message.sources.length})
+                    </h4>
+                    <p className="text-xs text-gray-500 mt-0.5">Click any source to navigate and highlight in PDF</p>
                   </div>
-                </details>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {message.sources.map((source, idx) => {
+                      const pageNumber = source.metadata?.page || source.metadata?.loc?.pageNumber;
+                      const hasPage = pageNumber !== undefined && pageNumber !== null;
+                      
+                      // Extract text for highlighting - use the precise snippet from source
+                      // Source already contains a precise snippet (first sentence, 50 chars max)
+                      const textToHighlight = source.pageContent
+                        .replace(/\[.*?\]/g, '') // Remove [Chunk X] markers if any
+                        .trim();
+                      
+                      return (
+                        <div 
+                          key={idx} 
+                          className={`p-2.5 rounded-lg border-2 transition-all ${
+                            hasPage 
+                              ? 'bg-yellow-50 border-yellow-300 hover:bg-yellow-100 hover:border-yellow-400 cursor-pointer shadow-sm hover:shadow-md' 
+                              : 'bg-gray-100 border-gray-300'
+                          }`}
+                          onClick={() => {
+                            if (onSourceClick) {
+                              onSourceClick(pageNumber || 1, textToHighlight || source.pageContent.substring(0, 30));
+                            }
+                          }}
+                          title={hasPage ? `Click to jump to page ${pageNumber} and highlight text` : 'No page information available'}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <div className="flex-1">
+                              <p className="opacity-95 text-xs leading-relaxed whitespace-pre-wrap break-words bg-white p-2 rounded border border-gray-200 font-sans">
+                                {source.pageContent}
+                              </p>
+                            </div>
+                            {hasPage && (
+                              <button className="flex-shrink-0 px-2.5 py-1 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-md text-xs font-bold shadow-sm transition-colors">
+                                📄 Page {pageNumber}
+                              </button>
+                            )}
+                          </div>
+                          {hasPage && (
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <span className="text-xs text-yellow-700 font-semibold">
+                                ✨ Click to highlight and navigate
+                              </span>
+                              {textToHighlight && (
+                                <span className="text-xs text-gray-500 italic">
+                                  (Will highlight: "{textToHighlight}...")
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {!hasPage && source.metadata?.query && (
+                            <p className="text-xs text-gray-500 mt-1 italic">
+                              Query: "{source.metadata.query}"
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
           </div>

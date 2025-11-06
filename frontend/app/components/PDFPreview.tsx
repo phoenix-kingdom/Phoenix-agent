@@ -6,25 +6,25 @@
  * Displays the uploaded PDF in the middle section
  * Shows PDF viewer or placeholder when no PDF is uploaded
  * 
- * Future: This component will be extended to support PDF editing
- * based on user requests (e.g., annotations, text modifications, etc.)
+ * Features:
+ * - Custom PDF.js viewer with text highlighting
+ * - Page navigation
+ * - Sentence-level highlighting
  */
 
 import { useState, useEffect } from 'react';
+import CustomPDFViewer from './CustomPDFViewer';
 
 interface PDFPreviewProps {
   fileId: string | null;
   fileUrl: string | null;
   fileName: string | null;
+  highlightPage?: number | null;
+  highlightText?: string | null;
 }
 
-export default function PDFPreview({ fileId, fileUrl, fileName }: PDFPreviewProps) {
+export default function PDFPreview({ fileId, fileUrl, fileName, highlightPage, highlightText }: PDFPreviewProps) {
   const [pdfError, setPdfError] = useState(false);
-
-  // Reset error when file changes
-  useEffect(() => {
-    setPdfError(false);
-  }, [fileUrl]); // Changed from fileId to fileUrl since we check fileUrl for preview
 
   // Only check fileUrl - fileId is optional for immediate preview before backend processing
   if (!fileUrl) {
@@ -66,8 +66,8 @@ export default function PDFPreview({ fileId, fileUrl, fileName }: PDFPreviewProp
         </h3>
       </div>
 
-      {/* PDF Viewer - Responsive, horizontally centered with maximum width, full height */}
-      <div className="flex-1 overflow-auto p-2 sm:p-3 md:p-4 lg:p-6 flex justify-center">
+      {/* PDF Viewer - Custom PDF.js viewer with highlighting */}
+      <div className="flex-1 overflow-hidden p-2 sm:p-3 md:p-4 lg:p-6">
         {pdfError ? (
           <div className="h-full flex items-center justify-center">
             <div className="text-center px-4">
@@ -78,12 +78,16 @@ export default function PDFPreview({ fileId, fileUrl, fileName }: PDFPreviewProp
             </div>
           </div>
         ) : (
-          <div className="bg-white shadow-lg rounded-lg overflow-hidden w-full max-w-full h-full mx-auto">
-            <embed
-              src={fileUrl}
-              type="application/pdf"
-              className="w-full h-full min-h-[400px] sm:min-h-[500px] md:min-h-[600px]"
-              onError={() => setPdfError(true)}
+          <div className="bg-white shadow-lg rounded-lg overflow-hidden w-full h-full mx-auto relative">
+            {highlightPage && highlightText && (
+              <div className="absolute top-2 right-2 z-10 bg-yellow-400 text-gray-900 px-3 py-1 rounded-lg shadow-lg text-sm font-semibold animate-pulse border-2 border-yellow-500">
+                📍 Page {highlightPage} - Highlighting: "{highlightText.substring(0, 30)}..."
+              </div>
+            )}
+            <CustomPDFViewer
+              fileUrl={fileUrl}
+              highlightPage={highlightPage || undefined}
+              highlightText={highlightText || undefined}
             />
           </div>
         )}

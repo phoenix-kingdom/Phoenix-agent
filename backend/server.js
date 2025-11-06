@@ -43,6 +43,15 @@ import { modelsHandler } from './routes/modelsHandler.js';
 // This makes variables available in process.env (like process.env.OPENAI_API_KEY)
 dotenv.config();
 
+// Validate that OpenAI API key is configured
+if (!process.env.OPENAI_API_KEY) {
+  console.warn('⚠️  WARNING: OPENAI_API_KEY is not set in .env file');
+  console.warn('⚠️  The application will not be able to connect to OpenAI API');
+  console.warn('⚠️  Please create a .env file in the backend folder with: OPENAI_API_KEY=sk-your-key-here');
+} else {
+  console.log('✅ OpenAI API key is configured (length:', process.env.OPENAI_API_KEY.length, ')');
+}
+
 // ES Module workaround - get __dirname equivalent
 // In CommonJS, __dirname is available automatically
 // In ES modules, we need to construct it manually

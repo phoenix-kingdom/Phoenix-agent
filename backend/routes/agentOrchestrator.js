@@ -10,7 +10,11 @@
 
 import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, AIMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
-import { book_search, book_search_schema } from './ragTool.js';
+import { DynamicStructuredTool } from '@langchain/core/tools';
+import { AgentExecutor, createOpenAIFunctionsAgent } from 'langchain/agents';
+import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
+import { z } from 'zod';
+import { book_search } from './ragTool.js';
 
 /**
  * Agent Orchestrator Handler
@@ -57,15 +61,16 @@ export async function agentOrchestratorHandler(req, res) {
     // System prompt defining the agent's persona and rules
     const systemPrompt = `You are an AI-powered reading companion and expert technical book analyst.
 
-Your primary goal is to help users understand and explore the uploaded technical book.
+IMPORTANT: You have access to a book_search tool that searches the uploaded PDF document. The user has already uploaded a PDF, and you MUST use the book_search tool to answer questions about the book's content.
 
-You MUST use the \`book_search\` tool for any question that requires specific, citation-based information from the book.
+Rules:
+1. ALWAYS use the book_search tool when the user asks about content from the uploaded book/PDF
+2. ALWAYS use the book_search tool when the user asks questions that require information from the document
+3. If a question is general knowledge (not related to the book), you can answer directly
+4. Never say you don't have access to the book - you always have the book_search tool available
+5. When using book_search, use the user's exact question as the query parameter
 
-If a question is general knowledge or can be answered without the book, answer directly.
-
-If the user asks for a summary, style analysis, or target audience, answer based on your initial analysis of the book (which you should have stored or can generate).
-
-Always be concise, professional, and reference the book's content when possible.`;
+Remember: The PDF has already been uploaded and processed. Use book_search to find answers from it.`;
 
     // Convert chat history to LangChain message format
     const historyMessages = chat_history.map((msg) => {
@@ -76,92 +81,75 @@ Always be concise, professional, and reference the book's content when possible.
       }
     });
 
-    // Bind tools to the LLM
-    const llmWithTools = llm.bindTools([book_search_schema]);
-
-    /**
-     * Step 1: Initial Call
-     * Send user question with available tools
-     */
-    const initialMessages = [
-      new SystemMessage(systemPrompt),
-      ...historyMessages,
-      new HumanMessage(question)
-    ];
-
-    let messages = initialMessages;
-    let toolResults = [];
-    let iterations = 0;
-    const maxIterations = 5; // Prevent infinite loops
-    let finalAnswer = '';
-
-    /**
-     * Step 2-4: Agent Loop
-     * Continue until we get a final answer (no more tool calls)
-     */
-    while (iterations < maxIterations) {
-      iterations++;
-
-      // Invoke LLM with current messages
-      const response = await llmWithTools.invoke(messages);
-
-      // Check if response contains tool calls
-      const toolCalls = response.tool_calls || [];
-
-      if (toolCalls.length === 0) {
-        // No tool calls - this is the final answer
-        finalAnswer = response.content;
-        break;
+    // Create the book_search tool as a LangChain tool
+    const bookSearchTool = new DynamicStructuredTool({
+      name: 'book_search',
+      description: 'Searches the content of the uploaded technical book to find relevant, citation-based answers. Use this tool for any question that requires information directly from the book. ALWAYS use this tool when the user asks about content from the uploaded PDF.',
+      schema: z.object({
+        query: z.string().describe('The specific question or search term to look up in the book\'s content.')
+      }),
+      func: async ({ query }) => {
+        return await book_search(query, fileId, selectedModel, selectedTemperature);
       }
+    });
 
-      // Step 3: Execute Tools
-      const toolCallResults = [];
-      
-      for (const toolCall of toolCalls) {
-        if (toolCall.name === 'book_search') {
-          const query = toolCall.args?.query || question;
-          console.log(`[Agent] Executing book_search with query: "${query}"`);
-          
-          const toolResult = await book_search(query, fileId, selectedModel, selectedTemperature);
-          
-          toolCallResults.push(
-            new ToolMessage({
-              content: toolResult,
-              tool_call_id: toolCall.id,
-            })
-          );
+    // Use Agent Executor approach (more reliable than manual tool calling)
+    // This is the same approach used in agentHandler.js which works
+    const tools = [bookSearchTool];
 
-          toolResults.push({
-            tool: toolCall.name,
-            toolInput: { query },
-            observation: toolResult.substring(0, 500) + (toolResult.length > 500 ? '...' : '')
-          });
+    // Create agent prompt
+    const prompt = ChatPromptTemplate.fromMessages([
+      ['system', systemPrompt],
+      new MessagesPlaceholder('chat_history'),
+      ['human', '{input}'],
+      new MessagesPlaceholder('agent_scratchpad'),
+    ]);
+
+    // Create agent
+    const agent = await createOpenAIFunctionsAgent({
+      llm,
+      tools,
+      prompt,
+    });
+
+    // Create agent executor
+    const agentExecutor = new AgentExecutor({
+      agent,
+      tools,
+      verbose: true,
+      maxIterations: 5,
+    });
+
+    // Execute agent
+    const response = await agentExecutor.invoke({
+      input: question,
+      chat_history: historyMessages.map(msg => {
+        if (msg instanceof HumanMessage) {
+          return { role: 'user', content: msg.content };
+        } else if (msg instanceof AIMessage) {
+          return { role: 'assistant', content: msg.content };
         }
-      }
+        return msg;
+      }),
+    });
 
-      // Step 4: Second Call (Tool Result Injection)
-      // Add the LLM response (with tool calls) and tool results to messages
-      messages = [
-        ...messages,
-        response, // The LLM's response with tool calls
-        ...toolCallResults
-      ];
-    }
-
-    if (iterations >= maxIterations) {
-      console.warn('[Agent] Reached max iterations, returning current response');
-      finalAnswer = finalAnswer || 'I apologize, but I reached the maximum number of reasoning steps.';
-    }
-
-    /**
-     * Step 5: Return Final Answer
-     */
+    // Format tool results for frontend
+    const toolResults = response.intermediateSteps?.map(step => {
+      const obsStr = typeof step.observation === 'string' 
+        ? step.observation 
+        : String(step.observation);
+      return {
+        tool: step.action.tool,
+        toolInput: step.action.toolInput,
+        observation: obsStr.substring(0, 500) + (obsStr.length > 500 ? '...' : ''),
+      };
+    }) || [];
 
     res.json({
       success: true,
-      answer: finalAnswer,
-      steps: toolResults, // Include tool usage steps for transparency
-      iterations: iterations
+      answer: response.output,
+      steps: toolResults,
+      iterations: toolResults.length
     });
 
   } catch (error) {

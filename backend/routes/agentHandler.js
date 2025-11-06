@@ -204,13 +204,16 @@ Always cite your sources when using information from the PDF.`],
       success: true,
       answer: response.output,
       // Include intermediate steps for debugging/transparency
-      steps: response.intermediateSteps?.map(step => ({
-        tool: step.action.tool,
-        toolInput: step.action.toolInput,
-        observation: typeof step.observation === 'string' 
-          ? step.observation.substring(0, 500) + '...' 
-          : String(step.observation).substring(0, 500) + '...',
-      })) || [],
+      steps: response.intermediateSteps?.map(step => {
+        const obsStr = typeof step.observation === 'string' 
+          ? step.observation 
+          : String(step.observation);
+        return {
+          tool: step.action.tool,
+          toolInput: step.action.toolInput,
+          observation: obsStr.substring(0, 500) + (obsStr.length > 500 ? '...' : ''),
+        };
+      }) || [],
     });
 
   } catch (error) {

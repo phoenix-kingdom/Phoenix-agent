@@ -55,6 +55,7 @@ export default function ChatSidebar({
     setIsLoading(true);
 
     try {
+      // Use agent orchestrator endpoint (decides to answer directly or use tools)
       const response = await fetch('http://localhost:3001/api/chat', {
         method: 'POST',
         headers: {
@@ -78,7 +79,26 @@ export default function ChatSidebar({
         const assistantMessage: Message = {
           role: 'assistant',
           content: data.answer,
-          sources: data.sources,
+          // Support both sources (from RAG) and steps (from agent)
+          sources: data.sources || (data.steps ? data.steps.map((step: any) => {
+            // Properly handle pageContent - ensure it's always a string
+            let pageContent = '';
+            if (step.observation) {
+              pageContent = typeof step.observation === 'string' 
+                ? step.observation 
+                : String(step.observation);
+            } else if (step.toolInput) {
+              // Serialize object to string if toolInput is an object
+              pageContent = typeof step.toolInput === 'string'
+                ? step.toolInput
+                : JSON.stringify(step.toolInput);
+            }
+            
+            return {
+              pageContent: pageContent,
+              metadata: { tool: step.tool }
+            };
+          }) : []),
         };
         setMessages((prev) => [...prev, assistantMessage]);
       } else {

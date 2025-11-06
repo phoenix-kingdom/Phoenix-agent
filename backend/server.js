@@ -35,6 +35,8 @@ import { fileURLToPath } from 'url';
 // Import our route handlers (functions that process requests)
 import { processPDF } from './routes/pdfProcessor.js';
 import { chatHandler } from './routes/chatHandler.js';
+import { agentHandler } from './routes/agentHandler.js';
+import { agentOrchestratorHandler } from './routes/agentOrchestrator.js';
 import { modelsHandler } from './routes/modelsHandler.js';
 
 // Load environment variables from .env file
@@ -164,8 +166,8 @@ const upload = multer({
 // After middleware processes file, it calls processPDF function
 app.post('/api/upload', upload.single('pdf'), processPDF);
 
-// POST /api/chat - Handle chat/question requests
-// chatHandler function processes the question and returns AI response
+// POST /api/chat - Agent Orchestrator (decides to answer directly or use tools)
+// agentOrchestratorHandler implements the agent loop with manual tool calling
 app.post('/api/chat', (req, res, next) => {
   console.log('Received chat request:', { 
     hasBody: !!req.body, 
@@ -174,7 +176,19 @@ app.post('/api/chat', (req, res, next) => {
     model: req.body?.model 
   });
   next();
-}, chatHandler);
+}, agentOrchestratorHandler);
+
+// POST /api/agent - Handle agent-based requests with tool usage
+// agentHandler creates an AI agent that can reason and use tools
+app.post('/api/agent', (req, res, next) => {
+  console.log('Received agent request:', { 
+    hasBody: !!req.body, 
+    hasQuestion: !!req.body?.question,
+    hasFileId: !!req.body?.fileId,
+    model: req.body?.model 
+  });
+  next();
+}, agentHandler);
 
 // GET /api/models - Fetch available OpenAI models
 // modelsHandler function fetches models from OpenAI API

@@ -151,18 +151,6 @@ export default function Home() {
               priority
               unoptimized
             />
-            <span 
-              className="text-white font-bold tracking-wide" 
-              style={{ 
-                fontSize: 'clamp(1.25rem, 2vw, 2rem)',
-                letterSpacing: '0.05em',
-                fontFamily: 'system-ui, -apple-system, sans-serif',
-                lineHeight: '1',
-                paddingBottom: '0.2em'
-              }}
-            >
-              Chatbot
-            </span>
           </div>
         </div>
       </header>

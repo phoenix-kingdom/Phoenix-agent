@@ -5,6 +5,9 @@
  * 
  * Displays the uploaded PDF in the middle section
  * Shows PDF viewer or placeholder when no PDF is uploaded
+ * 
+ * Future: This component will be extended to support PDF editing
+ * based on user requests (e.g., annotations, text modifications, etc.)
  */
 
 import { useState, useEffect } from 'react';
@@ -63,8 +66,8 @@ export default function PDFPreview({ fileId, fileUrl, fileName }: PDFPreviewProp
         </h3>
       </div>
 
-      {/* PDF Viewer - Responsive with maximum width for readability */}
-      <div className="flex-1 overflow-auto p-2 sm:p-3 md:p-4 lg:p-6">
+      {/* PDF Viewer - Responsive, horizontally centered with maximum width, full height */}
+      <div className="flex-1 overflow-auto p-2 sm:p-3 md:p-4 lg:p-6 flex justify-center">
         {pdfError ? (
           <div className="h-full flex items-center justify-center">
             <div className="text-center px-4">
@@ -75,7 +78,7 @@ export default function PDFPreview({ fileId, fileUrl, fileName }: PDFPreviewProp
             </div>
           </div>
         ) : (
-          <div className="bg-white shadow-lg rounded-lg overflow-hidden h-full w-full max-w-full">
+          <div className="bg-white shadow-lg rounded-lg overflow-hidden w-full max-w-full h-full mx-auto">
             <embed
               src={fileUrl}
               type="application/pdf"

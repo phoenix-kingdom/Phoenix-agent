@@ -22,7 +22,9 @@ interface ChatSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   selectedModel: string;
+  setSelectedModel: (model: string) => void;
   temperature: number;
+  setTemperature: (temp: number) => void;
 }
 
 export default function ChatSidebar({
@@ -31,12 +33,44 @@ export default function ChatSidebar({
   isOpen,
   onClose,
   selectedModel,
+  setSelectedModel,
   temperature,
+  setTemperature,
 }: ChatSidebarProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [models, setModels] = useState<Array<{ value: string; label: string }>>([
+    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+  ]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch available models
+  useEffect(() => {
+    const fetchModels = async () => {
+      setIsLoadingModels(true);
+      try {
+        const response = await fetch('http://localhost:3001/api/models');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.models && data.models.length > 0) {
+            const formattedModels = data.models.map((model: { id: string; label: string }) => ({
+              value: model.id,
+              label: model.label,
+            }));
+            setModels(formattedModels);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch models:', err);
+      } finally {
+        setIsLoadingModels(false);
+      }
+    };
+    fetchModels();
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -127,28 +161,107 @@ export default function ChatSidebar({
   return (
     <div className="h-full bg-white border-l border-gray-200 flex flex-col">
       {/* Header - Responsive */}
-      <div className="p-3 sm:p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-        <h2 className="text-base sm:text-lg font-semibold text-gray-800">Chat with AI</h2>
-        <button
-          onClick={onClose}
-          className="p-2 hover:bg-gray-200 rounded-lg transition-colors group"
-          aria-label="Close chat"
-          title="Close chat"
-        >
-          <svg
-            className="w-5 h-5 text-gray-600 group-hover:text-gray-800"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2.5}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
+      <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-800">Chat with AI</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors group"
+              aria-label="Toggle settings"
+              title="Toggle settings"
+            >
+              <svg
+                className="w-5 h-5 text-gray-600 group-hover:text-gray-800"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors group"
+              aria-label="Close chat"
+              title="Close chat"
+            >
+              <svg
+                className="w-5 h-5 text-gray-600 group-hover:text-gray-800"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.5}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Settings Panel - Collapsible */}
+        {showSettings && (
+          <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
+            {/* Model Selection */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Model
+              </label>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={isProcessing || isLoadingModels || isLoading}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {isLoadingModels ? (
+                  <option>Loading...</option>
+                ) : (
+                  models.map((model) => (
+                    <option key={model.value} value={model.value}>
+                      {model.label}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {/* Temperature Control */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Temperature: {temperature.toFixed(1)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={temperature}
+                onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                disabled={isProcessing || isLoading}
+                className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-0.5">
+                <span>0.0</span>
+                <span>1.0</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Messages - Responsive */}

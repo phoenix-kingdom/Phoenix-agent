@@ -172,9 +172,9 @@ export default function Home() {
         </div>
 
         {/* Middle Section - PDF Preview - Hidden on mobile when chat is open */}
-        {/* Set to 95% width for better readability and proper left alignment */}
-        <div className={`${isChatOpen ? 'hidden md:flex' : 'flex'} flex-1 overflow-hidden`}>
-          <div className="w-[95%] h-full">
+        {/* Centered with max width for better readability */}
+        <div className={`${isChatOpen ? 'hidden md:flex' : 'flex'} flex-1 overflow-hidden justify-center items-start`}>
+          <div className="w-full max-w-[95%] h-full">
             <PDFPreview
               fileId={fileId}
               fileUrl={fileUrl}
@@ -214,7 +214,9 @@ export default function Home() {
                 isOpen={isChatOpen}
                 onClose={() => setIsChatOpen(false)}
                 selectedModel={selectedModel}
+                setSelectedModel={setSelectedModel}
                 temperature={temperature}
+                setTemperature={setTemperature}
               />
             </div>
           </>

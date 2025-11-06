@@ -41,14 +41,14 @@ import { getVectorStore } from './pdfProcessor.js';
  * 4. LLM generates answer based on PDF content
  * 5. Return answer to frontend
  * 
- * @param req - Express request object (contains question and fileId)
+ * @param req - Express request object (contains question, fileId, model, and temperature)
  * @param res - Express response object (send answer back to frontend)
  */
 export async function chatHandler(req, res) {
   try {
-    // Extract question and fileId from request body
+    // Extract question, fileId, model, and temperature from request body
     // req.body contains JSON data sent from frontend
-    const { question, fileId } = req.body;
+    const { question, fileId, model, temperature } = req.body;
 
     // Validate that question was provided
     if (!question) {
@@ -59,6 +59,23 @@ export async function chatHandler(req, res) {
     // We need fileId to know which PDF's vector store to search
     if (!fileId) {
       return res.status(400).json({ error: 'File ID is required' });
+    }
+
+    // Extract and validate model
+    // Use provided model or default to 'gpt-3.5-turbo'
+    // Frontend sends model selection from LeftSidebar
+    const selectedModel = model || 'gpt-3.5-turbo';
+
+    // Extract and validate temperature
+    // Temperature should be between 0 and 1
+    // Frontend sends temperature from LeftSidebar slider
+    let selectedTemperature = 0.7; // Default value
+    if (temperature !== undefined && temperature !== null) {
+      const tempNum = parseFloat(temperature);
+      // Validate temperature is a number and within valid range
+      if (!isNaN(tempNum) && tempNum >= 0 && tempNum <= 1) {
+        selectedTemperature = tempNum;
+      }
     }
 
     /**
@@ -80,10 +97,8 @@ export async function chatHandler(req, res) {
      * Step 2: Initialize the Language Model (LLM)
      * 
      * ChatOpenAI wraps OpenAI's GPT models
-     * We use GPT-3.5-turbo because it's:
-     * - Fast
-     * - Cost-effective
-     * - Good quality for most tasks
+     * Model and temperature are now extracted from request body
+     * This allows users to select their preferred model and temperature from the frontend
      * 
      * Temperature controls randomness:
      * - 0.0 = very deterministic (same input = same output)
@@ -92,8 +107,8 @@ export async function chatHandler(req, res) {
      */
     const llm = new ChatOpenAI({
       openAIApiKey: process.env.OPENAI_API_KEY, // From .env file
-      modelName: 'gpt-3.5-turbo', // GPT model to use
-      temperature: 0.7, // Balance between creativity and consistency
+      modelName: selectedModel, // Use model from frontend (or default)
+      temperature: selectedTemperature, // Use temperature from frontend (or default)
     });
 
     /**

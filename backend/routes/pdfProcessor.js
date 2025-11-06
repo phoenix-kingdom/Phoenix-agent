@@ -20,9 +20,8 @@ import fs from 'fs/promises';
 // Import path - for working with file paths
 import path from 'path';
 
-// Import fileURLToPath and createRequire - needed for ES modules
+// Import fileURLToPath - needed for ES modules
 import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
 
 // Import RecursiveCharacterTextSplitter from Langchain
 // This splits long documents into smaller chunks
@@ -89,19 +88,31 @@ export async function processPDF(req, res) {
     const dataBuffer = await fs.readFile(filePath);
 
     // Step 3: Parse PDF and extract text
-    // pdf-parse is a CommonJS module, so we use createRequire to load it
-    // This is the most reliable way to load CommonJS modules in ES modules
-    const require = createRequire(import.meta.url);
-    const pdfParse = require('pdf-parse');
+    // pdf-parse v2.4.5 uses a class-based API (PDFParse class)
+    // Import the PDFParse class from the main module
+    const { PDFParse } = await import('pdf-parse');
     
-    // Check if pdfParse is actually a function
-    if (typeof pdfParse !== 'function') {
-      throw new Error('pdf-parse module not loaded correctly');
-    }
+    // Create an instance of PDFParse with default options
+    // The new API requires instantiation and then calling load() and getText()
+    const parser = new PDFParse({});
     
-    // pdfParse extracts text content from the PDF buffer
-    // Returns an object with text, metadata, etc.
-    const pdfData = await pdfParse(dataBuffer);
+    // Load the PDF buffer
+    await parser.load(dataBuffer);
+    
+    // Extract text from all pages
+    // getText() returns the text content from the PDF
+    const text = parser.getText();
+    
+    // Get PDF metadata/info
+    const info = parser.getInfo();
+    
+    // Create a compatible object structure similar to old pdf-parse API
+    const pdfData = {
+      text: text || '',
+      info: info || {},
+      metadata: info || {},
+      numPages: info?.numPages || 0,
+    };
 
     // Validate that PDF contains text
     // Some PDFs are just images (scanned documents) - those won't work

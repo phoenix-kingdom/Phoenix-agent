@@ -1,0 +1,30 @@
+{
+  "name": "phoenix-agent-backend",
+  "version": "1.0.0",
+  "description": "Backend server for PDF chatbot with Langchain",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "langchain",
+    "pdf",
+    "chatbot"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@langchain/community": "^0.0.20",
+    "@langchain/core": "^0.1.0",
+    "@langchain/openai": "^0.0.14",
+    "@langchain/textsplitters": "^0.0.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "langchain": "^0.1.0",
+    "multer": "^1.4.5-lts.1",
+    "pdf-parse": "^2.4.5"
+  }
+}

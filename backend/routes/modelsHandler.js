@@ -46,30 +46,44 @@ export async function modelsHandler(req, res) {
 
     const data = await response.json();
 
-    // Format ALL available models (not just GPT models)
-    // Filter out deprecated models but include all active models
-    const allModels = data.data
+    // Filter models based on API key access - only show chat-compatible models
+    // The API returns all models, but we should only show ones usable for chat
+    const chatCompatibleModels = data.data
       .filter(model => {
-        // Exclude deprecated models
-        // Keep all active models regardless of type
-        return !model.id.includes('deprecated') && 
-               !model.id.includes('beta') && 
-               model.owned_by === 'openai';
+        const modelId = model.id.toLowerCase();
+        
+        // Only include chat-compatible models (GPT models, O1, O3)
+        const isChatModel = 
+          modelId.startsWith('gpt-') ||
+          modelId.startsWith('o1-') ||
+          modelId.startsWith('o3-');
+        
+        // Exclude deprecated, beta, and non-chat models
+        const isActive = 
+          !modelId.includes('deprecated') && 
+          !modelId.includes('beta') &&
+          model.owned_by === 'openai';
+        
+        // Exclude embedding, whisper, dall-e, and other non-chat models
+        const isNotOtherModel = 
+          !modelId.includes('embedding') &&
+          !modelId.includes('whisper') &&
+          !modelId.includes('dall-e') &&
+          !modelId.includes('tts') &&
+          !modelId.includes('tts-');
+        
+        return isChatModel && isActive && isNotOtherModel;
       })
       .map(model => ({
         id: model.id,
-        // Create a readable label
+        // Create a readable label for chat models
         label: model.id
           .replace(/gpt-/gi, 'GPT-')
           .replace(/turbo/gi, 'Turbo')
           .replace(/preview/gi, 'Preview')
           .replace(/o1-/gi, 'O1-')
           .replace(/o3-/gi, 'O3-')
-          .replace(/whisper-/gi, 'Whisper-')
-          .replace(/dall-e/gi, 'DALL-E')
-          .replace(/embedding-/gi, 'Embedding-')
-          .replace(/text-embedding-/gi, 'Text-Embedding-')
-          .replace(/text-/gi, 'Text-')
+          .replace(/mini/gi, 'Mini')
           .split('-')
           .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
           .join(' ')
@@ -94,22 +108,21 @@ export async function modelsHandler(req, res) {
       });
 
     // If no models found, return some defaults
-    if (allModels.length === 0) {
+    if (chatCompatibleModels.length === 0) {
+      console.warn('No chat-compatible models found for API key, using defaults');
       return res.json({
         success: true,
         models: [
           { id: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-          { id: 'gpt-4', label: 'GPT-4' },
-          { id: 'gpt-4-turbo-preview', label: 'GPT-4 Turbo Preview' },
-          { id: 'gpt-4o', label: 'GPT-4o' },
-        ]
+        ],
+        warning: 'No models found for your API key, using default'
       });
     }
 
     res.json({
       success: true,
-      models: allModels,
-      count: allModels.length
+      models: chatCompatibleModels,
+      count: chatCompatibleModels.length
     });
 
   } catch (error) {

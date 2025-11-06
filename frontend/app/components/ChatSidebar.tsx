@@ -105,9 +105,9 @@ export default function ChatSidebar({
 
   return (
     <div className="h-full bg-white border-l border-gray-200 flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-        <h2 className="text-lg font-semibold text-gray-800">Chat with AI</h2>
+      {/* Header - Responsive */}
+      <div className="p-3 sm:p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-800">Chat with AI</h2>
         <button
           onClick={onClose}
           className="p-2 hover:bg-gray-200 rounded-lg transition-colors group"
@@ -130,8 +130,8 @@ export default function ChatSidebar({
         </button>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Messages - Responsive */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
         {messages.length === 0 && fileId && (
           <div className="text-center text-gray-500 mt-8">
             <p>Ask a question about your PDF!</p>
@@ -196,8 +196,8 @@ export default function ChatSidebar({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="p-4 border-t border-gray-200 bg-gray-50">
+      {/* Input Area - Responsive */}
+      <div className="p-3 sm:p-4 border-t border-gray-200 bg-gray-50">
         <div className="flex space-x-3">
           <div className="flex-1 relative">
             <textarea

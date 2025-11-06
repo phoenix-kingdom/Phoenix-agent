@@ -1,7 +1,7 @@
 'use client';
 
-// Import React hooks - useState allows us to manage component state
-import { useState } from 'react';
+// Import React hooks - useState and useEffect for state management and cleanup
+import { useState, useEffect } from 'react';
 // Import Next.js Image component for optimized images
 import Image from 'next/image';
 // Import our custom components
@@ -36,9 +36,29 @@ export default function Home() {
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
 
+  // Cleanup object URLs to prevent memory leaks
+  useEffect(() => {
+    // Cleanup function: revoke the object URL when component unmounts or fileUrl changes
+    return () => {
+      if (fileUrl) {
+        URL.revokeObjectURL(fileUrl);
+      }
+    };
+  }, [fileUrl]); // Re-run cleanup when fileUrl changes
+
   // Handle file upload success - also store file info for preview
   const handleUploadSuccess = (id: string, file: File) => {
-    setFileId(id);
+    // Only update fileId if it's not empty (empty means just preview, not processed yet)
+    if (id) {
+      setFileId(id);
+    }
+    
+    // Revoke previous object URL before creating a new one to prevent memory leaks
+    if (fileUrl) {
+      URL.revokeObjectURL(fileUrl);
+    }
+    
+    // Always update preview URL and filename
     // Create object URL for preview
     const url = URL.createObjectURL(file);
     setFileUrl(url);
@@ -47,28 +67,29 @@ export default function Home() {
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      {/* Header - Responsive */}
+      <header className="bg-white border-b border-gray-200 px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 flex items-center justify-between">
+        <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4">
           <Image
             src="/logo.jpg"
             alt="PDF Chatbot Logo"
-            width={40}
-            height={40}
-            className="rounded-full"
+            width={32}
+            height={32}
+            className="rounded-full w-8 h-8 sm:w-10 sm:h-10"
             priority
           />
           <div>
-            <h1 className="text-xl font-bold text-gray-800">PDF Chatbot</h1>
-            <p className="text-sm text-gray-500">AI-powered document assistant</p>
+            <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">PDF Chatbot</h1>
+            <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">AI-powered document assistant</p>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area - Three Column Layout */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Settings & Upload */}
-        <div className="w-80 flex-shrink-0">
+      {/* Main Content Area - Responsive Layout */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        {/* Left Sidebar - Settings & Upload - Hidden on mobile when chat is open */}
+        {/* Made much narrower to maximize PDF preview space */}
+        <div className={`${isChatOpen ? 'hidden md:flex' : 'flex'} w-full md:w-56 lg:w-64 flex-shrink-0 flex-col h-full md:h-auto`}>
           <LeftSidebar
             onUploadSuccess={handleUploadSuccess}
             isProcessing={isProcessing}
@@ -80,18 +101,22 @@ export default function Home() {
           />
         </div>
 
-        {/* Middle Section - PDF Preview */}
-        <div className="flex-1 overflow-hidden">
-          <PDFPreview
-            fileId={fileId}
-            fileUrl={fileUrl}
-            fileName={fileName}
-          />
+        {/* Middle Section - PDF Preview - Hidden on mobile when chat is open */}
+        {/* Set to 95% width for better readability and proper left alignment */}
+        <div className={`${isChatOpen ? 'hidden md:flex' : 'flex'} flex-1 overflow-hidden`}>
+          <div className="w-[95%] h-full">
+            <PDFPreview
+              fileId={fileId}
+              fileUrl={fileUrl}
+              fileName={fileName}
+            />
+          </div>
         </div>
 
-        {/* Right Sidebar - Chat (conditional rendering) */}
+        {/* Right Sidebar - Chat - Full screen on mobile, narrower sidebar on desktop */}
+        {/* Made narrower to preserve PDF preview width */}
         {isChatOpen && (
-          <div className="w-96 flex-shrink-0">
+          <div className="fixed md:relative inset-0 md:inset-auto w-full md:w-72 lg:w-80 flex-shrink-0 z-50 md:z-auto">
             <ChatSidebar
               fileId={fileId}
               isProcessing={isProcessing}
@@ -104,7 +129,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* Floating Chat Button */}
+      {/* Floating Chat Button - Responsive positioning */}
       <ChatButton
         onClick={() => setIsChatOpen(!isChatOpen)}
         isOpen={isChatOpen}

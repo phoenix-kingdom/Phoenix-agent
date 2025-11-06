@@ -35,6 +35,7 @@ import { fileURLToPath } from 'url';
 // Import our route handlers (functions that process requests)
 import { processPDF } from './routes/pdfProcessor.js';
 import { chatHandler } from './routes/chatHandler.js';
+import { modelsHandler } from './routes/modelsHandler.js';
 
 // Load environment variables from .env file
 // This makes variables available in process.env (like process.env.OPENAI_API_KEY)
@@ -63,7 +64,12 @@ const PORT = process.env.PORT || 3001;
 
 // CORS Middleware - allows frontend to make requests
 // Without this, browser would block requests from localhost:3000 to localhost:3001
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // JSON Middleware - parses JSON request bodies
 // When frontend sends JSON data, this automatically converts it to a JavaScript object
@@ -141,7 +147,7 @@ const upload = multer({
   
   // limits: Set file size restrictions
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB in bytes (10 * 1024 KB * 1024 B)
+    fileSize: 100 * 1024 * 1024 // 100MB in bytes (100 * 1024 KB * 1024 B)
   }
 });
 
@@ -160,7 +166,19 @@ app.post('/api/upload', upload.single('pdf'), processPDF);
 
 // POST /api/chat - Handle chat/question requests
 // chatHandler function processes the question and returns AI response
-app.post('/api/chat', chatHandler);
+app.post('/api/chat', (req, res, next) => {
+  console.log('Received chat request:', { 
+    hasBody: !!req.body, 
+    hasQuestion: !!req.body?.question,
+    hasFileId: !!req.body?.fileId,
+    model: req.body?.model 
+  });
+  next();
+}, chatHandler);
+
+// GET /api/models - Fetch available OpenAI models
+// modelsHandler function fetches models from OpenAI API
+app.get('/api/models', modelsHandler);
 
 // GET /api/health - Health check endpoint
 // Useful for checking if server is running

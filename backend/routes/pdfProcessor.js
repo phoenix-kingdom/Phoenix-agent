@@ -22,6 +22,8 @@ import path from 'path';
 
 // Import fileURLToPath - needed for ES modules
 import { fileURLToPath } from 'url';
+// Import createRequire - allows importing CommonJS modules in ES modules
+import { createRequire } from 'module';
 
 // Import RecursiveCharacterTextSplitter from Langchain
 // This splits long documents into smaller chunks
@@ -41,6 +43,9 @@ import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 // Get __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Create require function for importing CommonJS modules
+const require = createRequire(import.meta.url);
 
 /**
  * Vector Store Storage
@@ -89,30 +94,33 @@ export async function processPDF(req, res) {
 
     // Step 3: Parse PDF and extract text
     // pdf-parse v2.4.5 uses a class-based API (PDFParse class)
-    // Import the PDFParse class from the main module
+    // We use dynamic import since pdf-parse is an ES module
     const { PDFParse } = await import('pdf-parse');
     
-    // Create an instance of PDFParse with default options
-    // The new API requires instantiation and then calling load() and getText()
-    const parser = new PDFParse({});
-    
-    // Load the PDF buffer
-    await parser.load(dataBuffer);
+    // Create an instance with the PDF buffer
+    // The constructor accepts LoadParameters with 'data' property for Buffer/Uint8Array
+    const parser = new PDFParse({ data: dataBuffer });
     
     // Extract text from all pages
-    // getText() returns the text content from the PDF
-    const text = parser.getText();
+    // getText() returns a TextResult object with text content
+    const textResult = await parser.getText();
     
     // Get PDF metadata/info
-    const info = parser.getInfo();
+    const infoResult = await parser.getInfo();
     
-    // Create a compatible object structure similar to old pdf-parse API
+    // Create a compatible object structure
+    // Get page count from total property or pages array length as fallback
+    const numPages = infoResult.total || (infoResult.pages ? infoResult.pages.length : 0);
+    
     const pdfData = {
-      text: text || '',
-      info: info || {},
-      metadata: info || {},
-      numPages: info?.numPages || 0,
+      text: textResult.text || '', // Full document text
+      info: infoResult.info || {},
+      metadata: infoResult.metadata || {},
+      numPages: numPages, // Use total property or pages array length
     };
+    
+    // Clean up the parser
+    await parser.destroy();
 
     // Validate that PDF contains text
     // Some PDFs are just images (scanned documents) - those won't work

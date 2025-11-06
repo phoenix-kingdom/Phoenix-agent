@@ -16,7 +16,7 @@ export default function ChatButton({ onClick, isOpen }: ChatButtonProps) {
   return (
     <button
       onClick={onClick}
-      className={`fixed bottom-6 right-6 z-50 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ${
+      className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ${
         isOpen ? 'rotate-90' : ''
       }`}
       aria-label="Toggle chat"

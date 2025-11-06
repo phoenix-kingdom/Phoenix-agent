@@ -21,9 +21,10 @@ export default function PDFPreview({ fileId, fileUrl, fileName }: PDFPreviewProp
   // Reset error when file changes
   useEffect(() => {
     setPdfError(false);
-  }, [fileId]);
+  }, [fileUrl]); // Changed from fileId to fileUrl since we check fileUrl for preview
 
-  if (!fileId || !fileUrl) {
+  // Only check fileUrl - fileId is optional for immediate preview before backend processing
+  if (!fileUrl) {
     return (
       <div className="h-full bg-gray-50 flex items-center justify-center">
         <div className="text-center p-8">
@@ -55,30 +56,30 @@ export default function PDFPreview({ fileId, fileUrl, fileName }: PDFPreviewProp
 
   return (
     <div className="h-full bg-gray-50 flex flex-col">
-      {/* PDF Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3">
-        <h3 className="text-sm font-medium text-gray-700 truncate">
+      {/* PDF Header - Responsive */}
+      <div className="bg-white border-b border-gray-200 px-3 sm:px-4 py-2 sm:py-3">
+        <h3 className="text-xs sm:text-sm font-medium text-gray-700 truncate">
           {fileName || 'PDF Preview'}
         </h3>
       </div>
 
-      {/* PDF Viewer */}
-      <div className="flex-1 overflow-auto p-4">
+      {/* PDF Viewer - Responsive with maximum width for readability */}
+      <div className="flex-1 overflow-auto p-2 sm:p-3 md:p-4 lg:p-6">
         {pdfError ? (
           <div className="h-full flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-red-600 mb-2">Failed to load PDF</p>
-              <p className="text-sm text-gray-500">
+            <div className="text-center px-4">
+              <p className="text-red-600 mb-2 text-sm sm:text-base">Failed to load PDF</p>
+              <p className="text-xs sm:text-sm text-gray-500">
                 The PDF file may be corrupted or inaccessible
               </p>
             </div>
           </div>
         ) : (
-          <div className="bg-white shadow-lg rounded-lg overflow-hidden h-full">
+          <div className="bg-white shadow-lg rounded-lg overflow-hidden h-full w-full max-w-full">
             <embed
               src={fileUrl}
               type="application/pdf"
-              className="w-full h-full min-h-[600px]"
+              className="w-full h-full min-h-[400px] sm:min-h-[500px] md:min-h-[600px]"
               onError={() => setPdfError(true)}
             />
           </div>
